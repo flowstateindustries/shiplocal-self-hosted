@@ -1,0 +1,65 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (real secrets — never tracked)
+.env*
+# …but ship the example so fresh clones can `cp .env.example .env.local`
+!.env.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# local SQLite database
+/data
+*.db
+*.sqlite
+*.sqlite3
+
+# Internal docs & scratch (kept locally, not shared)
+/CLAUDE.md
+/docs/
+/plans/
+/shiplocal.md
+/code_audit.md
+
+# Claude Code + MCP per-project config
+/.claude/
+/.mcp.json
+
+# Editor / IDE configs
+/.vscode/
+/.idea/
+/.cursor/

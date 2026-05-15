@@ -1,0 +1,580 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Enable dark mode variant with .dark class */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ============================================
+   ShipLocal Theme System
+   Matches Flask landing page exactly
+   ============================================ */
+
+/* Light mode (default) */
+:root {
+  --color-surface: #ffffff;
+  --color-surface-secondary: #f9fafb;
+  --color-surface-tertiary: #f3f4f6;
+  --color-surface-hover: #e5e7eb;
+  --color-surface-elevated: #ffffff;
+  --color-content: #111827;
+  --color-content-secondary: #4b5563;
+  --color-content-tertiary: #6b7280;
+  --color-content-muted: #9ca3af;
+  --color-content-inverted: #ffffff;
+  --color-border: #e5e7eb;
+  --color-border-secondary: #d1d5db;
+  --color-scrollbar: #9ca3af;
+
+  /* Accent color (Applyra blue) */
+  --color-accent: #2563eb;
+  --color-accent-light: #3b82f6;
+  --color-accent-dark: #1d4ed8;
+
+  /* shadcn/ui compatibility */
+  --background: var(--color-white);
+  --foreground: var(--color-neutral-800);
+  --popover: var(--color-white);
+  --popover-foreground: var(--color-neutral-800);
+  --muted: --alpha(var(--color-black) / 4%);
+  --muted-foreground: color-mix(in srgb, var(--color-neutral-500) 90%, var(--color-black));
+  --accent: --alpha(var(--color-black) / 4%);
+  --accent-foreground: var(--color-neutral-800);
+  --border: --alpha(var(--color-black) / 8%);
+  --card: var(--color-white);
+  --card-foreground: var(--color-neutral-800);
+  --destructive: var(--color-red-500);
+  --destructive-foreground: var(--color-red-700);
+  --info: var(--color-blue-500);
+  --info-foreground: var(--color-blue-700);
+  --input: --alpha(var(--color-black) / 10%);
+  --primary: var(--color-neutral-800);
+  --primary-foreground: var(--color-neutral-50);
+  --ring: var(--color-neutral-400);
+  --secondary: --alpha(var(--color-black) / 4%);
+  --secondary-foreground: var(--color-neutral-800);
+  --success: var(--color-emerald-500);
+  --success-foreground: var(--color-emerald-700);
+  --warning: var(--color-amber-500);
+  --warning-foreground: var(--color-amber-700);
+}
+
+/* Dark mode (warm stone palette) */
+.dark {
+  --color-surface: #0c0a09;           /* stone-950 */
+  --color-surface-secondary: #141210;
+  --color-surface-tertiary: #1c1917;  /* stone-900 */
+  --color-surface-hover: #292524;     /* stone-800 */
+  --color-surface-elevated: #292524;
+  --color-content: #faf9f7;           /* warm white */
+  --color-content-secondary: #a8a29e; /* stone-400 */
+  --color-content-tertiary: #78716c;
+  --color-content-muted: #57534e;     /* stone-700 */
+  --color-content-inverted: #0c0a09;
+  --color-border: #292524;            /* stone-800 */
+  --color-border-secondary: #44403c;
+  --color-scrollbar: #44403c;
+
+  /* Accent color */
+  --color-accent: #3b82f6;
+  --color-accent-light: #60a5fa;
+  --color-accent-dark: #2563eb;
+
+  /* shadcn/ui compatibility */
+  --background: color-mix(in srgb, var(--color-neutral-950) 95%, var(--color-white));
+  --foreground: var(--color-neutral-100);
+  --popover: color-mix(in srgb, var(--background) 98%, var(--color-white));
+  --popover-foreground: var(--color-neutral-100);
+  --muted: --alpha(var(--color-white) / 4%);
+  --muted-foreground: color-mix(in srgb, var(--color-neutral-500) 90%, var(--color-white));
+  --accent: --alpha(var(--color-white) / 4%);
+  --accent-foreground: var(--color-neutral-100);
+  --border: --alpha(var(--color-white) / 6%);
+  --card: color-mix(in srgb, var(--background) 98%, var(--color-white));
+  --card-foreground: var(--color-neutral-100);
+  --destructive: color-mix(in srgb, var(--color-red-500) 90%, var(--color-white));
+  --destructive-foreground: var(--color-red-400);
+  --info: var(--color-blue-500);
+  --info-foreground: var(--color-blue-400);
+  --input: --alpha(var(--color-white) / 8%);
+  --primary: var(--color-neutral-100);
+  --primary-foreground: var(--color-neutral-800);
+  --ring: var(--color-neutral-500);
+  --secondary: --alpha(var(--color-white) / 4%);
+  --secondary-foreground: var(--color-neutral-100);
+  --success: var(--color-emerald-500);
+  --success-foreground: var(--color-emerald-400);
+  --warning: var(--color-amber-500);
+  --warning-foreground: var(--color-amber-400);
+}
+
+/* Tailwind v4 theme tokens */
+@theme inline {
+  --color-surface: var(--color-surface);
+  --color-surface-secondary: var(--color-surface-secondary);
+  --color-surface-tertiary: var(--color-surface-tertiary);
+  --color-surface-hover: var(--color-surface-hover);
+  --color-content: var(--color-content);
+  --color-content-secondary: var(--color-content-secondary);
+  --color-content-muted: var(--color-content-muted);
+  --color-content-inverted: var(--color-content-inverted);
+  --color-border: var(--color-border);
+
+  /* shadcn/ui compatibility tokens */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  /* Custom breakpoints */
+  --breakpoint-sidebar: 800px;
+  --animate-skeleton: skeleton 2s -1s infinite linear;
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning: var(--warning);
+  --color-success-foreground: var(--success-foreground);
+  --color-success: var(--success);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-ring: var(--ring);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-input: var(--input);
+  --color-info-foreground: var(--info-foreground);
+  --color-info: var(--info);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive: var(--destructive);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  @keyframes skeleton {
+  to {
+    background-position: -200% 0;
+    }
+  }
+}
+
+/* Base styles */
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+
+body {
+  background: var(--color-surface);
+  color: var(--color-content);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Selection color */
+::selection {
+  background: #3b82f6;
+  color: white;
+}
+
+/* Noise texture overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  opacity: 0.025;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ============================================
+   Section Backgrounds (no gradient)
+   ============================================ */
+.section-fade-down {
+  background: var(--color-surface);
+}
+
+.section-fade-up {
+  background: var(--color-surface);
+}
+
+/* ============================================
+   Screenshot Glow Effect - disabled
+   ============================================ */
+.screenshot-glow {
+  position: relative;
+}
+
+/* ============================================
+   Animations
+   ============================================ */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in {
+  animation: slideIn 0.2s ease-out forwards;
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.6s ease-out forwards;
+}
+
+.delay-100 {
+  animation-delay: 0.1s;
+  opacity: 0;
+}
+
+.delay-200 {
+  animation-delay: 0.2s;
+  opacity: 0;
+}
+
+.delay-300 {
+  animation-delay: 0.3s;
+  opacity: 0;
+}
+
+.delay-400 {
+  animation-delay: 0.4s;
+  opacity: 0;
+}
+
+/* ============================================
+   Background Dot Pattern
+   ============================================ */
+.bg-dot-pattern {
+  background-image: radial-gradient(circle, var(--color-content) 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: 0.03;
+}
+
+.dark .bg-dot-pattern {
+  opacity: 0.05;
+}
+
+/* ============================================
+   Scrollbar Styling
+   ============================================ */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-scrollbar);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-content-tertiary);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-scrollbar) transparent;
+}
+
+/* ============================================
+   Custom Utilities
+   ============================================ */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ============================================
+   Card Hover Effects
+   ============================================ */
+.card-hover {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.3s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-4px);
+}
+
+.dark .card-hover:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+:root .card-hover:hover {
+  border-color: rgba(0, 0, 0, 0.15);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+}
+
+/* ============================================
+   Button Hover Effects
+   ============================================ */
+.btn-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-hover:hover {
+  transform: scale(1.02);
+}
+
+.dark .btn-hover:hover {
+  box-shadow: 0 10px 40px -10px rgba(255, 255, 255, 0.25);
+}
+
+:root .btn-hover:hover {
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.25);
+}
+
+/* ============================================
+   Inner App Background Effects
+   ============================================ */
+
+/* More prominent dot pattern for inner app */
+.inner-app-dots {
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(circle, var(--color-content) 1.2px, transparent 1.2px);
+  background-size: 20px 20px;
+  opacity: 0.1;
+  pointer-events: none;
+}
+
+.dark .inner-app-dots {
+  opacity: 0.18;
+}
+
+/* Gradient glow for inner app background - disabled */
+.inner-app-glow {
+  display: none;
+}
+
+/* Semi-transparent panel for sidebar/content */
+.panel-transparent {
+  background: color-mix(in srgb, var(--color-surface-secondary) 85%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.dark .panel-transparent {
+  background: color-mix(in srgb, var(--color-surface-secondary) 80%, transparent);
+}
+
+/* ============================================
+   Stat Card Color Glows
+   ============================================ */
+.stat-glow-blue { box-shadow: 0 0 40px -10px rgba(59, 130, 246, 0.15); }
+.stat-glow-green { box-shadow: 0 0 40px -10px rgba(34, 197, 94, 0.15); }
+.stat-glow-purple { box-shadow: 0 0 40px -10px rgba(168, 85, 247, 0.15); }
+.stat-glow-amber { box-shadow: 0 0 40px -10px rgba(245, 158, 11, 0.15); }
+
+.dark .stat-glow-blue { box-shadow: 0 0 40px -10px rgba(59, 130, 246, 0.25); }
+.dark .stat-glow-green { box-shadow: 0 0 40px -10px rgba(34, 197, 94, 0.25); }
+.dark .stat-glow-purple { box-shadow: 0 0 40px -10px rgba(168, 85, 247, 0.25); }
+.dark .stat-glow-amber { box-shadow: 0 0 40px -10px rgba(245, 158, 11, 0.25); }
+
+/* ============================================
+   Status Dot Pulse Animation
+   ============================================ */
+@keyframes statusPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.status-dot-pulse { animation: statusPulse 2s ease-in-out infinite; }
+
+/* ============================================
+   Marquee Animations
+   ============================================ */
+@keyframes marqueeLeft {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@keyframes marqueeRight {
+  0% {
+    transform: translate3d(-50%, 0, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.animate-marquee-left {
+  animation: marqueeLeft 30s linear infinite;
+  will-change: transform;
+}
+
+.animate-marquee-right {
+  animation: marqueeRight 30s linear infinite;
+  will-change: transform;
+}
+
+.animate-marquee-left:hover,
+.animate-marquee-right:hover {
+  animation-play-state: paused;
+}
+
+/* Respect user motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================
+   Landing Page Components (Applyra style)
+   ============================================ */
+
+/* Pill badge component */
+.pill-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: 9999px;
+  background: var(--color-surface-secondary);
+  border: 1px solid var(--color-border);
+  color: var(--color-content-secondary);
+}
+
+/* Accent word with gradient text */
+.accent-word {
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  position: relative;
+  display: inline-block;
+}
+
+.accent-word::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  border-radius: 9999px;
+}
+
+/* Large faded number for steps */
+.step-number {
+  font-size: 5rem;
+  font-weight: 700;
+  color: var(--color-content);
+  opacity: 0.05;
+  position: absolute;
+  top: 1rem;
+  left: 1.5rem;
+  line-height: 1;
+}
+
+/* Comparison card borders */
+.comparison-without {
+  border-top: 3px solid #ef4444;
+}
+
+.comparison-with {
+  border-top: 3px solid #22c55e;
+}
+
+/* Grid pattern background */
+.grid-pattern {
+  background-image:
+    linear-gradient(to right, rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+  background-size: 30px 30px;
+}
+
+.dark .grid-pattern {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 30px 30px;
+}
+
+/* ============================================
+   Marketing/Outer Pages Layout
+   Forces light mode styling regardless of theme
+   ============================================ */
+
+/* Marketing page wrapper - light mode (default) */
+.marketing-layout {
+  /* Override CSS variables for light mode */
+  --color-surface: #ffffff;
+  --color-surface-secondary: #f9fafb;
+  --color-surface-tertiary: #f3f4f6;
+  --color-surface-hover: #e5e7eb;
+  --color-content: #111827;
+  --color-content-secondary: #4b5563;
+  --color-content-tertiary: #6b7280;
+  --color-content-muted: #9ca3af;
+  --color-content-inverted: #ffffff;
+  --color-border: #e5e7eb;
+}
+
+/* Dark mode for marketing pages */
+.dark .marketing-layout {
+  --color-surface: #0c0a09;           /* stone-950 */
+  --color-surface-secondary: #141210;
+  --color-surface-tertiary: #1c1917;  /* stone-900 */
+  --color-surface-hover: #292524;     /* stone-800 */
+  --color-content: #faf9f7;           /* warm white */
+  --color-content-secondary: #a8a29e; /* stone-400 */
+  --color-content-tertiary: #78716c;
+  --color-content-muted: #57534e;     /* stone-700 */
+  --color-content-inverted: #0c0a09;
+  --color-border: #292524;            /* stone-800 */
+}
+
+/* Marketing main content - clean background */
+.marketing-main {
+  background: var(--color-surface);
+}
+
+/* Alternating section backgrounds for landing pages */
+.section-alt {
+  background: var(--color-surface-secondary);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
