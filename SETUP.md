@@ -44,6 +44,7 @@ SQLite file under `./data/` and an AI API key.
    - `STRINGS_BATCH_SIZE` — `.xcstrings`: strings per AI batch (default `50`)
    - `STRINGS_MAX_CHARS_PER_BATCH` — `.xcstrings`: char ceiling per AI batch (default `8000`)
    - `STALE_JOB_THRESHOLD_MS` — ms before a stuck `processing` job is marked `interrupted` (default `300000`)
+   - `CONCURRENT_PRICING_PRODUCTS` — products priced/pushed in parallel per affordability-pricing job (default `2`)
 
    The private key has real newlines. Replace each newline with the literal
    two-character sequence `\n` and wrap the value in double quotes so it
@@ -62,7 +63,7 @@ SQLite file under `./data/` and an AI API key.
 
 1. Sign in to [App Store Connect](https://appstoreconnect.apple.com/access/integrations/api).
 2. Open **Users and Access → Integrations → App Store Connect API**.
-3. Click the **+** button to create a new key with **App Manager** access.
+3. Click the **+** button to create a new key with **App Manager** access. (App Manager or Admin is required for the affordability-pricing feature, which writes subscription/IAP prices.)
 4. Download the `.p8` private key file (it is only offered once).
 5. Copy:
    - the **Issuer ID** shown at the top of the page → `ASC_ISSUER_ID`

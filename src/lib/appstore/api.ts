@@ -599,6 +599,115 @@ export async function getAppInfoLocalizations(
   }
 }
 
+/**
+ * Get all app info localizations with name/subtitle data for a given appInfoId.
+ * Used by the copy feature to fetch app-level fields from the released version.
+ */
+export async function getAppInfoLocalizationsData(
+  credentials: ASCCredentials,
+  appInfoId: string
+): Promise<ASCResult<Array<{ locale: string; name?: string; subtitle?: string }>>> {
+  try {
+    const headers = await getAuthHeaders(
+      credentials.keyId,
+      credentials.issuerId,
+      credentials.privateKey
+    )
+
+    const response = await fetch(
+      `${BASE_URL}/v1/appInfos/${appInfoId}/appInfoLocalizations?fields[appInfoLocalizations]=locale,name,subtitle`,
+      {
+        headers,
+        signal: AbortSignal.timeout(15000),
+      }
+    )
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: `Failed to fetch app info localizations: ${response.status}`,
+      }
+    }
+
+    const data = await response.json()
+    const results = (data.data || []).map(
+      (loc: { attributes?: { locale?: string; name?: string; subtitle?: string } }) => ({
+        locale: loc.attributes?.locale || '',
+        name: loc.attributes?.name || undefined,
+        subtitle: loc.attributes?.subtitle || undefined,
+      })
+    ).filter((l: { locale: string }) => !!l.locale)
+
+    return { success: true, data: results }
+  } catch (error) {
+    return {
+      success: false,
+      error: `Error fetching app info localizations data: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    }
+  }
+}
+
+/**
+ * Get the app info ID for the most recently released (READY_FOR_SALE) version.
+ * Falls back to editable app info if no released one is found.
+ */
+export async function getReleasedAppInfoId(
+  credentials: ASCCredentials,
+  appId: string
+): Promise<ASCResult<string>> {
+  try {
+    const headers = await getAuthHeaders(
+      credentials.keyId,
+      credentials.issuerId,
+      credentials.privateKey
+    )
+
+    const response = await fetch(`${BASE_URL}/v1/apps/${appId}/appInfos`, {
+      headers,
+      signal: AbortSignal.timeout(15000),
+    })
+
+    if (!response.ok) {
+      return { success: false, error: `Failed to fetch app infos: ${response.status}` }
+    }
+
+    const data = await response.json()
+    const appInfos: Array<{ id: string; attributes?: { appStoreState?: string } }> = data.data || []
+
+    if (appInfos.length === 0) {
+      return { success: false, error: 'No app info found for this app' }
+    }
+
+    const released = appInfos.find(
+      (ai) => ai.attributes?.appStoreState === 'READY_FOR_SALE'
+    )
+    if (released) return { success: true, data: released.id }
+
+    // Fall back to the first non-editable app info
+    const editableStates = new Set([
+      'PREPARE_FOR_SUBMISSION',
+      'DEVELOPER_ACTION_NEEDED',
+      'WAITING_FOR_REVIEW',
+      'IN_REVIEW',
+      'DEVELOPER_REJECTED',
+      'REJECTED',
+      'METADATA_REJECTED',
+    ])
+    const nonEditable = appInfos.find(
+      (ai) => !editableStates.has(ai.attributes?.appStoreState || '')
+    )
+    if (nonEditable) return { success: true, data: nonEditable.id }
+
+    // Last resort — return the first one
+    return { success: true, data: appInfos[0].id }
+  } catch (error) {
+    return {
+      success: false,
+      error: `Error fetching released app info ID: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    }
+  }
+}
+
 // =============================================================================
 // Push Functions (Write Operations)
 // =============================================================================

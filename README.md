@@ -14,6 +14,7 @@ ShipLocal pulls existing metadata from App Store Connect, asks Claude or OpenAI 
 - 🌐 **Every App Store locale.** All 39 codes Apple ships, in the exact form ASC expects (`fr-FR`, `pt-BR`, `zh-Hans`, …).
 - 🔁 **Resumable.** If a job fails mid-stream, hit **Resume** — it skips locales that already succeeded and re-runs only the failures.
 - 📄 **`.xcstrings` translation, too.** Upload a `Localizable.xcstrings`, get a translated one back, download.
+- 💰 **Affordability pricing.** Scale subscription and in-app-purchase prices to each country's purchasing power (a $19.99/yr sub shouldn't cost the same in the US as in India), then push them to App Store Connect. Uses a bundled purchasing-power dataset — no AI tokens spent.
 - 🧠 **Multi-provider AI.** Switch between Claude and OpenAI by editing one env var.
 
 ---
@@ -86,6 +87,13 @@ Claude Haiku is in the same ballpark (slightly more, depending on length). Every
 - Plural variation preservation
 - Skip-or-overwrite toggle for strings that already have a translation
 
+### Affordability pricing
+- Subscriptions **and** in-app purchases, per app
+- Bundled purchasing-power-parity dataset scales each territory relative to a base territory (US by default); optional extra global discount on top
+- Snaps every target to one of Apple's fixed price points (you can't set arbitrary prices) — nearest point wins, and you can override any of them in the preview
+- Mandatory review of current-vs-proposed prices before anything is pushed
+- Pushes via the ASC pricing APIs (subscription prices + IAP price schedules). **Requires an API key with Admin or App Manager access.** No AI tokens are spent.
+
 ### Workflow
 - Server-Sent Events stream locale-by-locale progress live to the UI (no polling)
 - Atomic SQLite job-claim prevents duplicate processing if you double-click
@@ -121,6 +129,7 @@ Optional performance knobs (defaults shown):
 | `STRINGS_BATCH_SIZE` | `50` | Strings per AI call for `.xcstrings` jobs. |
 | `STRINGS_MAX_CHARS_PER_BATCH` | `8000` | Hard char ceiling per `.xcstrings` batch (prompt-size cap). |
 | `STALE_JOB_THRESHOLD_MS` | `300000` | When stale-cleanup flips a stuck `processing` job to `interrupted`. |
+| `CONCURRENT_PRICING_PRODUCTS` | `2` | Products priced/pushed in parallel per affordability-pricing job. Each fans out across ~175 territories, so keep it modest. |
 | `DATA_DIR` | `./data` | Where the SQLite file lives. |
 
 See **[`.env.example`](.env.example)** for the annotated template.
@@ -148,6 +157,7 @@ src/
     ├── db/                # SQLite singleton, schema, typed queries
     ├── localization/      # Constants, job utilities, stale cleanup
     ├── strings/           # .xcstrings parser, batcher, translator, merger
+    ├── pricing/           # PPP dataset, price-point calculator, compute pipeline
     └── api/               # SSE helpers, response helpers, in-process mutex
 ```
 

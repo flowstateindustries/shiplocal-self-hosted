@@ -28,5 +28,15 @@ export {
   getAppInfoLocalizations,
 } from './api'
 
+// Pricing (subscriptions & in-app purchases)
+export {
+  listAppPricingProducts,
+  getProductPricePoints,
+  getBasePricePoint,
+  getEqualizedPricePoints,
+  pushSubscriptionPrice,
+  pushIapPriceSchedule,
+} from './pricing'
+
 // Credential helpers
 export { getASCCredentials, hasASCCredentials } from './credentials'

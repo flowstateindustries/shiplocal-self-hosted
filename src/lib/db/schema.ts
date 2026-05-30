@@ -64,4 +64,53 @@ CREATE TABLE IF NOT EXISTS strings_jobs (
 
 CREATE INDEX IF NOT EXISTS idx_strings_jobs_created_at
   ON strings_jobs(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS pricing_jobs (
+  id TEXT PRIMARY KEY,
+  app_id TEXT NOT NULL,
+  app_name TEXT NOT NULL,
+  app_icon_url TEXT,
+  base_territory TEXT NOT NULL DEFAULT 'USA',
+  product_ids TEXT NOT NULL DEFAULT '[]',
+  strategy TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  results TEXT,
+  product_results TEXT NOT NULL DEFAULT '{}',
+  error_message TEXT,
+  pushed_to_asc INTEGER NOT NULL DEFAULT 0,
+  pushed_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  completed_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_pricing_jobs_created_at
+  ON pricing_jobs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_pricing_jobs_app_id
+  ON pricing_jobs(app_id);
+
+CREATE TABLE IF NOT EXISTS copy_jobs (
+  id TEXT PRIMARY KEY,
+  app_id TEXT NOT NULL,
+  app_name TEXT NOT NULL,
+  app_icon_url TEXT,
+  source_version_id TEXT NOT NULL,
+  source_version_string TEXT NOT NULL,
+  target_version_id TEXT NOT NULL,
+  target_version_string TEXT NOT NULL,
+  fields_to_copy TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL DEFAULT 'pending',
+  results TEXT,
+  error_message TEXT,
+  pushed_to_asc INTEGER NOT NULL DEFAULT 0,
+  pushed_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  completed_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_copy_jobs_created_at
+  ON copy_jobs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_copy_jobs_app_id
+  ON copy_jobs(app_id);
 `

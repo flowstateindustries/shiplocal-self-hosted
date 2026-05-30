@@ -10,6 +10,12 @@ import type {
   LocalizationJobInsert,
   LocalizationJobUpdate,
   LocalizationResults,
+  PricingJob,
+  PricingJobConfig,
+  PricingJobInsert,
+  PricingJobUpdate,
+  PricingProductStatus,
+  PricingResults,
   SelectedApp,
   SelectedAppInsert,
   StringsJob,
@@ -17,6 +23,10 @@ import type {
   StringsJobUpdate,
   StringsLocaleResult,
   XCStringsFile,
+  CopyJob,
+  CopyJobInsert,
+  CopyJobUpdate,
+  CopyResults,
 } from '@/lib/database/types'
 
 // =============================================================================
@@ -71,6 +81,25 @@ interface StringsJobRow {
   total_output_tokens: number
   total_cost_cents: number
   ai_model: string | null
+  created_at: string
+  updated_at: string
+  completed_at: string | null
+}
+
+interface PricingJobRow {
+  id: string
+  app_id: string
+  app_name: string
+  app_icon_url: string | null
+  base_territory: string
+  product_ids: string
+  strategy: string | null
+  status: string
+  results: string | null
+  product_results: string
+  error_message: string | null
+  pushed_to_asc: number
+  pushed_at: string | null
   created_at: string
   updated_at: string
   completed_at: string | null
@@ -137,6 +166,30 @@ function mapStringsJob(row: StringsJobRow): StringsJob {
     total_output_tokens: row.total_output_tokens,
     total_cost_cents: row.total_cost_cents,
     ai_model: row.ai_model,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    completed_at: row.completed_at,
+  }
+}
+
+function mapPricingJob(row: PricingJobRow): PricingJob {
+  return {
+    id: row.id,
+    app_id: row.app_id,
+    app_name: row.app_name,
+    app_icon_url: row.app_icon_url,
+    base_territory: row.base_territory,
+    product_ids: parseJsonColumn<string[]>(row.product_ids, []),
+    strategy: parseJsonColumn<PricingJobConfig | null>(row.strategy, null),
+    status: row.status as PricingJob['status'],
+    results: parseJsonColumn<PricingResults | null>(row.results, null),
+    product_results: parseJsonColumn<Record<string, PricingProductStatus>>(
+      row.product_results,
+      {}
+    ),
+    error_message: row.error_message,
+    pushed_to_asc: row.pushed_to_asc === 1,
+    pushed_at: row.pushed_at,
     created_at: row.created_at,
     updated_at: row.updated_at,
     completed_at: row.completed_at,
@@ -451,4 +504,279 @@ export function claimStringsJobForProcessing(
     .run(id, ...allowedFromStatuses)
   if (info.changes === 0) return null
   return getStringsJob(id)
+}
+
+// =============================================================================
+// Pricing Jobs
+// =============================================================================
+
+export function listPricingJobs(): PricingJob[] {
+  const rows = getDb()
+    .prepare(`SELECT * FROM pricing_jobs ORDER BY created_at DESC`)
+    .all() as PricingJobRow[]
+  return rows.map(mapPricingJob)
+}
+
+export function getPricingJob(id: string): PricingJob | null {
+  const row = getDb()
+    .prepare(`SELECT * FROM pricing_jobs WHERE id = ?`)
+    .get(id) as PricingJobRow | undefined
+  return row ? mapPricingJob(row) : null
+}
+
+export function insertPricingJob(input: PricingJobInsert): PricingJob {
+  const id = newId()
+  getDb()
+    .prepare(
+      `INSERT INTO pricing_jobs (
+         id, app_id, app_name, app_icon_url, base_territory,
+         product_ids, strategy, status, results, product_results,
+         error_message, pushed_to_asc, pushed_at, completed_at
+       ) VALUES (
+         ?, ?, ?, ?, ?,
+         ?, ?, ?, ?, ?,
+         ?, ?, ?, ?
+       )`
+    )
+    .run(
+      id,
+      input.app_id,
+      input.app_name,
+      input.app_icon_url ?? null,
+      input.base_territory,
+      stringifyJsonColumn(input.product_ids ?? []),
+      input.strategy === undefined ? null : stringifyJsonColumn(input.strategy),
+      input.status ?? 'pending',
+      input.results === undefined ? null : stringifyJsonColumn(input.results),
+      stringifyJsonColumn(input.product_results ?? {}),
+      input.error_message ?? null,
+      input.pushed_to_asc ? 1 : 0,
+      input.pushed_at ?? null,
+      input.completed_at ?? null
+    )
+
+  const created = getPricingJob(id)
+  if (!created) {
+    throw new Error('Failed to insert pricing job')
+  }
+  return created
+}
+
+const PRICING_JSON_FIELDS = new Set(['results', 'product_results'])
+const PRICING_BOOL_FIELDS = new Set(['pushed_to_asc'])
+
+export function updatePricingJob(
+  id: string,
+  patch: PricingJobUpdate
+): PricingJob | null {
+  const fields: string[] = []
+  const values: unknown[] = []
+
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) continue
+    fields.push(`${key} = ?`)
+    if (PRICING_JSON_FIELDS.has(key)) {
+      values.push(value === null ? null : stringifyJsonColumn(value))
+    } else if (PRICING_BOOL_FIELDS.has(key)) {
+      values.push(value ? 1 : 0)
+    } else {
+      values.push(value)
+    }
+  }
+
+  fields.push(`updated_at = datetime('now')`)
+
+  if (fields.length === 1) {
+    getDb()
+      .prepare(`UPDATE pricing_jobs SET updated_at = datetime('now') WHERE id = ?`)
+      .run(id)
+    return getPricingJob(id)
+  }
+
+  values.push(id)
+  getDb()
+    .prepare(`UPDATE pricing_jobs SET ${fields.join(', ')} WHERE id = ?`)
+    .run(...values)
+  return getPricingJob(id)
+}
+
+export function deletePricingJob(id: string): boolean {
+  const info = getDb().prepare(`DELETE FROM pricing_jobs WHERE id = ?`).run(id)
+  return info.changes > 0
+}
+
+export function claimPricingJobForProcessing(
+  id: string,
+  allowedFromStatuses: ReadonlyArray<PricingJob['status']>
+): PricingJob | null {
+  const placeholders = allowedFromStatuses.map(() => '?').join(', ')
+  const info = getDb()
+    .prepare(
+      `UPDATE pricing_jobs
+         SET status = 'processing', updated_at = datetime('now')
+       WHERE id = ? AND status IN (${placeholders})`
+    )
+    .run(id, ...allowedFromStatuses)
+  if (info.changes === 0) return null
+  return getPricingJob(id)
+}
+
+// =============================================================================
+// Copy Jobs
+// =============================================================================
+
+interface CopyJobRow {
+  id: string
+  app_id: string
+  app_name: string
+  app_icon_url: string | null
+  source_version_id: string
+  source_version_string: string
+  target_version_id: string
+  target_version_string: string
+  fields_to_copy: string
+  status: string
+  results: string | null
+  error_message: string | null
+  pushed_to_asc: number
+  pushed_at: string | null
+  created_at: string
+  updated_at: string
+  completed_at: string | null
+}
+
+function mapCopyJob(row: CopyJobRow): CopyJob {
+  return {
+    id: row.id,
+    app_id: row.app_id,
+    app_name: row.app_name,
+    app_icon_url: row.app_icon_url,
+    source_version_id: row.source_version_id,
+    source_version_string: row.source_version_string,
+    target_version_id: row.target_version_id,
+    target_version_string: row.target_version_string,
+    fields_to_copy: parseJsonColumn<string[]>(row.fields_to_copy, []),
+    status: row.status as CopyJob['status'],
+    results: parseJsonColumn<CopyResults | null>(row.results, null),
+    error_message: row.error_message,
+    pushed_to_asc: row.pushed_to_asc === 1,
+    pushed_at: row.pushed_at,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    completed_at: row.completed_at,
+  }
+}
+
+export function listCopyJobs(): CopyJob[] {
+  const rows = getDb()
+    .prepare(`SELECT * FROM copy_jobs ORDER BY created_at DESC`)
+    .all() as CopyJobRow[]
+  return rows.map(mapCopyJob)
+}
+
+export function getCopyJob(id: string): CopyJob | null {
+  const row = getDb()
+    .prepare(`SELECT * FROM copy_jobs WHERE id = ?`)
+    .get(id) as CopyJobRow | undefined
+  return row ? mapCopyJob(row) : null
+}
+
+export function insertCopyJob(input: CopyJobInsert): CopyJob {
+  const id = newId()
+  getDb()
+    .prepare(
+      `INSERT INTO copy_jobs (
+         id, app_id, app_name, app_icon_url,
+         source_version_id, source_version_string,
+         target_version_id, target_version_string,
+         fields_to_copy, status, results, error_message,
+         pushed_to_asc, pushed_at, completed_at
+       ) VALUES (
+         ?, ?, ?, ?,
+         ?, ?,
+         ?, ?,
+         ?, ?, ?, ?,
+         ?, ?, ?
+       )`
+    )
+    .run(
+      id,
+      input.app_id,
+      input.app_name,
+      input.app_icon_url ?? null,
+      input.source_version_id,
+      input.source_version_string,
+      input.target_version_id,
+      input.target_version_string,
+      stringifyJsonColumn(input.fields_to_copy),
+      input.status ?? 'pending',
+      input.results === undefined ? null : stringifyJsonColumn(input.results),
+      input.error_message ?? null,
+      input.pushed_to_asc ? 1 : 0,
+      input.pushed_at ?? null,
+      input.completed_at ?? null
+    )
+
+  const created = getCopyJob(id)
+  if (!created) throw new Error('Failed to insert copy job')
+  return created
+}
+
+const COPY_JSON_FIELDS = new Set(['fields_to_copy', 'results'])
+const COPY_BOOL_FIELDS = new Set(['pushed_to_asc'])
+
+export function updateCopyJob(
+  id: string,
+  patch: CopyJobUpdate
+): CopyJob | null {
+  const fields: string[] = []
+  const values: unknown[] = []
+
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === undefined) continue
+    fields.push(`${key} = ?`)
+    if (COPY_JSON_FIELDS.has(key)) {
+      values.push(value === null ? null : stringifyJsonColumn(value))
+    } else if (COPY_BOOL_FIELDS.has(key)) {
+      values.push(value ? 1 : 0)
+    } else {
+      values.push(value)
+    }
+  }
+
+  fields.push(`updated_at = datetime('now')`)
+
+  if (fields.length === 1) {
+    getDb()
+      .prepare(`UPDATE copy_jobs SET updated_at = datetime('now') WHERE id = ?`)
+      .run(id)
+    return getCopyJob(id)
+  }
+
+  values.push(id)
+  getDb()
+    .prepare(`UPDATE copy_jobs SET ${fields.join(', ')} WHERE id = ?`)
+    .run(...values)
+  return getCopyJob(id)
+}
+
+export function deleteCopyJob(id: string): boolean {
+  const info = getDb().prepare(`DELETE FROM copy_jobs WHERE id = ?`).run(id)
+  return info.changes > 0
+}
+
+export function claimCopyJobForPushing(
+  id: string,
+  allowedFromStatuses: ReadonlyArray<CopyJob['status']>
+): CopyJob | null {
+  const placeholders = allowedFromStatuses.map(() => '?').join(', ')
+  const info = getDb()
+    .prepare(
+      `UPDATE copy_jobs
+         SET status = 'processing', updated_at = datetime('now')
+       WHERE id = ? AND status IN (${placeholders})`
+    )
+    .run(id, ...allowedFromStatuses)
+  if (info.changes === 0) return null
+  return getCopyJob(id)
 }

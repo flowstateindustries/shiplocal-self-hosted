@@ -8,9 +8,19 @@
  */
 
 import type { JobConfig } from '@/lib/localization/types'
+import type {
+  PricingJobConfig,
+  PricingProductStatus,
+  PricingResults,
+} from '@/lib/pricing/types'
 
 // Re-export JobConfig for backward compatibility
 export type { JobConfig } from '@/lib/localization/types'
+export type {
+  PricingJobConfig,
+  PricingProductStatus,
+  PricingResults,
+} from '@/lib/pricing/types'
 
 export type JobStatus =
   | 'pending'
@@ -206,5 +216,121 @@ export interface StringsJobUpdate {
   total_output_tokens?: number
   total_cost_cents?: number
   ai_model?: string | null
+  completed_at?: string | null
+}
+
+// =============================================================================
+// Pricing Jobs (per-country affordability for subscriptions & IAPs)
+//
+// Unlike the other domains this carries no AI/token cost — proposals come from
+// a bundled PPP dataset plus Apple's fixed price points.
+// =============================================================================
+
+export interface PricingJob {
+  id: string
+  app_id: string
+  app_name: string
+  app_icon_url: string | null
+  base_territory: string
+  product_ids: string[]
+  strategy: PricingJobConfig | null
+  status: JobStatus
+  results: PricingResults | null
+  product_results: Record<string, PricingProductStatus>
+  error_message: string | null
+  pushed_to_asc: boolean
+  pushed_at: string | null
+  created_at: string
+  updated_at: string
+  completed_at: string | null
+}
+
+export interface PricingJobInsert {
+  app_id: string
+  app_name: string
+  app_icon_url?: string | null
+  base_territory: string
+  product_ids: string[]
+  strategy?: PricingJobConfig | null
+  status?: JobStatus
+  results?: PricingResults | null
+  product_results?: Record<string, PricingProductStatus>
+  error_message?: string | null
+  pushed_to_asc?: boolean
+  pushed_at?: string | null
+  completed_at?: string | null
+}
+
+export interface PricingJobUpdate {
+  status?: JobStatus
+  results?: PricingResults | null
+  product_results?: Record<string, PricingProductStatus>
+  error_message?: string | null
+  pushed_to_asc?: boolean
+  pushed_at?: string | null
+  completed_at?: string | null
+}
+
+// =============================================================================
+// Copy Jobs (copy metadata fields from previous version to current editable)
+// =============================================================================
+
+export interface CopyLocaleResult {
+  locale: string
+  description?: string
+  keywords?: string
+  promotionalText?: string
+  whatsNew?: string
+  name?: string
+  subtitle?: string
+}
+
+export interface CopyResults {
+  locales: CopyLocaleResult[]
+}
+
+export interface CopyJob {
+  id: string
+  app_id: string
+  app_name: string
+  app_icon_url: string | null
+  source_version_id: string
+  source_version_string: string
+  target_version_id: string
+  target_version_string: string
+  fields_to_copy: string[]
+  status: JobStatus
+  results: CopyResults | null
+  error_message: string | null
+  pushed_to_asc: boolean
+  pushed_at: string | null
+  created_at: string
+  updated_at: string
+  completed_at: string | null
+}
+
+export interface CopyJobInsert {
+  app_id: string
+  app_name: string
+  app_icon_url?: string | null
+  source_version_id: string
+  source_version_string: string
+  target_version_id: string
+  target_version_string: string
+  fields_to_copy: string[]
+  status?: JobStatus
+  results?: CopyResults | null
+  error_message?: string | null
+  pushed_to_asc?: boolean
+  pushed_at?: string | null
+  completed_at?: string | null
+}
+
+export interface CopyJobUpdate {
+  status?: JobStatus
+  results?: CopyResults | null
+  error_message?: string | null
+  pushed_to_asc?: boolean
+  pushed_at?: string | null
   completed_at?: string | null
 }
