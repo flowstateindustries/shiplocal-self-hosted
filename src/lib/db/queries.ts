@@ -237,6 +237,20 @@ export function insertSelectedApp(input: SelectedAppInsert): SelectedApp {
   return created
 }
 
+/**
+ * Update the cached App Store icon URL for a tracked app.
+ * Returns true when a row was changed.
+ */
+export function updateSelectedAppIcon(
+  appId: string,
+  iconUrl: string | null
+): boolean {
+  const info = getDb()
+    .prepare(`UPDATE selected_apps SET app_icon_url = ? WHERE app_id = ?`)
+    .run(iconUrl, appId)
+  return info.changes > 0
+}
+
 export function deleteSelectedAppByAppId(appId: string): boolean {
   const info = getDb()
     .prepare(`DELETE FROM selected_apps WHERE app_id = ?`)

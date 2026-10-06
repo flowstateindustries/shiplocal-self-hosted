@@ -8,7 +8,7 @@ This document explains, in detail, how the two App-Store-facing domains of ShipL
 
 ## 1. Overview
 
-ShipLocal is a self-hosted, **single-user, single-process** Next.js 16 (App Router, Turbopack) app. It has no auth and no multi-tenancy by design — it is meant to run loopback-only on your machine. All state lives in one local SQLite file (`./data/shiplocal.db`, WAL mode). There are no background workers: work runs inside HTTP request handlers and is streamed back to the browser.
+ShipLocal is a self-hosted, **single-user, single-process** Next.js 16 (App Router, Turbopack) app. It has no auth and no multi-tenancy by design — it is meant to run loopback-only on your machine. All state lives in one local SQLite file (`./data/shiplocal.db`, WAL mode). There are no background workers: work runs inside HTTP request handlers and is streamed back to the browser. The one exception is a fire-and-forget task at server start that refreshes tracked apps' icons (§5).
 
 Two domains are covered here, and they share one job machine:
 
@@ -284,6 +284,20 @@ Applied on first DB access via `CREATE TABLE IF NOT EXISTS` — there is no migr
 
 **`pricing_jobs`**: `id`, `app_id`, `app_name`, `app_icon_url`, `base_territory` (default `'USA'`), `product_ids` (JSON), `strategy` (JSON config), `status`, `results` (JSON), `product_results` (JSON, default `'{}'`), `error_message`, `pushed_to_asc`, `pushed_at`, `created_at`, `updated_at`, `completed_at`. **Note: no token/cost columns.**
 
+### App icons refresh on server start
+
+`selected_apps.app_icon_url` caches an Apple CDN artwork URL. Apple rotates that URL whenever the icon changes, so the cached value eventually goes stale or 404s.
+
+`src/instrumentation.ts` (`register()`, Next's startup hook, once per server start) fire-and-forgets `refreshSelectedAppIcons()` in `src/lib/appstore/app-icons.ts`:
+
+1. `listSelectedApps()`, then `mapWithConcurrency(apps, APP_ICON_REFRESH_CONCURRENCY, …)`.
+2. Per app, `getAppStoreInfoByAppId(app_id)` — the iTunes Lookup API keyed by Apple's numeric track ID, sharing the 1-hour in-memory cache in `src/lib/appstore/api.ts` with the bundle-ID lookup `getAppStoreInfo()`.
+3. A changed URL is written back via `updateSelectedAppIcon()`. A lookup that returns nothing (offline, rate-limited, app delisted) leaves the existing icon alone — a stale icon beats a blank one.
+
+It never blocks startup and never throws; failures are logged and counted in the summary line. Guarded on `NEXT_RUNTIME === 'nodejs'` and skipped during `next build`, and opt-out via `REFRESH_APP_ICONS_ON_START=false`.
+
+Job rows (`localization_jobs.app_icon_url`, `pricing_jobs.app_icon_url`) hold a snapshot of the icon at run time and are **not** refreshed — history should show what was true then.
+
 ### Two directories — don't confuse them
 
 - **`src/lib/db/`** is the **real** data layer: `client.ts` (the `better-sqlite3` singleton via `getDb()`, WAL, `parseJsonColumn`/`stringifyJsonColumn` helpers, `newId()`), `schema.ts`, and `queries.ts` (typed CRUD + the atomic claim functions). Use this for any DB work.
@@ -331,6 +345,8 @@ Secrets and tuning go in `.env.local` (see `.env.example`). Editing `.env.local`
 | `CONCURRENT_PRICING_PRODUCTS` | Products computed/pushed in parallel | 2 |
 | `AI_TIMEOUT_MS` | Per-AI-call timeout | 30000 |
 | `STALE_JOB_THRESHOLD_MS` | When a `processing` job is treated as stale | 300000 |
+| `REFRESH_APP_ICONS_ON_START` | `false` skips the server-start app-icon refresh | enabled |
+| `APP_ICON_REFRESH_CONCURRENCY` | Apps looked up in parallel during that refresh | 4 |
 | `DATA_DIR` | SQLite directory (`{DATA_DIR}/shiplocal.db`) | `./data` |
 
 ---

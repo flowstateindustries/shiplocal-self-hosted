@@ -103,7 +103,8 @@ Claude Haiku is in the same ballpark (slightly more, depending on length). Every
 ### Self-hosted niceties
 - Single SQLite file at `./data/shiplocal.db` — back up by copying, reset by deleting
 - No auth, accounts, payments, or onboarding
-- Five env-tunable performance knobs (concurrency, timeouts, batch sizes)
+- App icons re-fetch from Apple on every server start, so a restart is all it takes to pick up new artwork
+- Env-tunable performance knobs (concurrency, timeouts, batch sizes)
 - 0 cron jobs, 0 webhooks, 0 background workers
 
 ---
@@ -130,6 +131,8 @@ Optional performance knobs (defaults shown):
 | `STRINGS_MAX_CHARS_PER_BATCH` | `8000` | Hard char ceiling per `.xcstrings` batch (prompt-size cap). |
 | `STALE_JOB_THRESHOLD_MS` | `300000` | When stale-cleanup flips a stuck `processing` job to `interrupted`. |
 | `CONCURRENT_PRICING_PRODUCTS` | `2` | Products priced/pushed in parallel per affordability-pricing job. Each fans out across ~175 territories, so keep it modest. |
+| `REFRESH_APP_ICONS_ON_START` | enabled | Set to `false` to skip the app-icon refresh that runs when the server boots (e.g. when working offline). |
+| `APP_ICON_REFRESH_CONCURRENCY` | `4` | Apps whose icons are looked up in parallel during that refresh. |
 | `DATA_DIR` | `./data` | Where the SQLite file lives. |
 
 See **[`.env.example`](.env.example)** for the annotated template.
@@ -151,6 +154,7 @@ src/
 │   └── api/               # 16 API routes incl. SSE streams for live progress
 ├── components/            # UI primitives (shadcn) + feature components
 ├── hooks/                 # SSE stream hooks, dashboard data hook
+├── instrumentation.ts     # Startup hook — refreshes app icons on every server start
 └── lib/
     ├── ai/                # Multi-provider AI client + localizer
     ├── appstore/          # ASC API client (JWT, versions, localizations)

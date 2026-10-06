@@ -21,6 +21,7 @@ export {
   getAuthHeaders,
   testConnection,
   getAppStoreInfo,
+  getAppStoreInfoByAppId,
   listApps,
   getAppVersions,
   getEditableVersion,

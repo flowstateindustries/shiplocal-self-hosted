@@ -162,15 +162,17 @@ export async function testConnection(
 }
 
 /**
- * Fetch app icon and App Store URL from iTunes Lookup API
- * Results are cached for 1 hour to reduce API calls
+ * Fetch app icon and App Store URL from the iTunes Lookup API.
+ * Results are cached for 1 hour to reduce API calls.
+ *
+ * @param cacheKey - Cache key, namespaced by lookup kind
+ * @param queryParam - The lookup query (e.g. `id=123` or `bundleId=com.x.y`)
  */
-export async function getAppStoreInfo(
-  bundleId: string,
-  country = 'us'
+async function itunesLookup(
+  cacheKey: string,
+  queryParam: string,
+  country: string
 ): Promise<{ iconUrl: string | null; storeUrl: string | null }> {
-  const cacheKey = `${bundleId}:${country}`
-
   // Check cache first
   const cached = itunesCache.get(cacheKey)
   if (cached && cached.expires > Date.now()) {
@@ -179,7 +181,7 @@ export async function getAppStoreInfo(
 
   try {
     const response = await fetch(
-      `https://itunes.apple.com/lookup?bundleId=${encodeURIComponent(bundleId)}&country=${country}`,
+      `https://itunes.apple.com/lookup?${queryParam}&country=${country}`,
       { signal: AbortSignal.timeout(5000) }
     )
 
@@ -218,6 +220,35 @@ export async function getAppStoreInfo(
   })
 
   return emptyResult
+}
+
+/**
+ * Fetch app icon and App Store URL by bundle ID.
+ */
+export async function getAppStoreInfo(
+  bundleId: string,
+  country = 'us'
+): Promise<{ iconUrl: string | null; storeUrl: string | null }> {
+  return itunesLookup(
+    `bundle:${bundleId}:${country}`,
+    `bundleId=${encodeURIComponent(bundleId)}`,
+    country
+  )
+}
+
+/**
+ * Fetch app icon and App Store URL by numeric App Store ID (track ID).
+ * This is the identifier stored on `selected_apps.app_id`.
+ */
+export async function getAppStoreInfoByAppId(
+  appId: string,
+  country = 'us'
+): Promise<{ iconUrl: string | null; storeUrl: string | null }> {
+  return itunesLookup(
+    `id:${appId}:${country}`,
+    `id=${encodeURIComponent(appId)}`,
+    country
+  )
 }
 
 /**

@@ -45,6 +45,8 @@ SQLite file under `./data/` and an AI API key.
    - `STRINGS_MAX_CHARS_PER_BATCH` — `.xcstrings`: char ceiling per AI batch (default `8000`)
    - `STALE_JOB_THRESHOLD_MS` — ms before a stuck `processing` job is marked `interrupted` (default `300000`)
    - `CONCURRENT_PRICING_PRODUCTS` — products priced/pushed in parallel per affordability-pricing job (default `2`)
+   - `REFRESH_APP_ICONS_ON_START` — set to `false` to skip the app-icon refresh on server start (default: enabled)
+   - `APP_ICON_REFRESH_CONCURRENCY` — apps whose icons are looked up in parallel during that refresh (default `4`)
 
    The private key has real newlines. Replace each newline with the literal
    two-character sequence `\n` and wrap the value in double quotes so it
@@ -71,6 +73,17 @@ SQLite file under `./data/` and an AI API key.
    - the contents of the `.p8` file (with `\n` replacing real newlines) → `ASC_PRIVATE_KEY`
 
 Restart `npm run dev` after editing `.env.local`.
+
+## App icons
+
+Every time the server starts, ShipLocal re-fetches the App Store icon for each
+app you track and saves the new URL to the database. Apple rotates its artwork
+URLs whenever an icon changes, so this keeps the dashboard from showing stale
+(or broken) icons — restart the server and the pictures are current again.
+
+The refresh runs in the background and never delays startup. If a lookup fails
+(offline, rate-limited, app not found), the previously saved icon is kept.
+Set `REFRESH_APP_ICONS_ON_START=false` in `.env.local` to turn it off.
 
 ## Where data lives
 

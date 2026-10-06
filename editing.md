@@ -61,12 +61,13 @@ src/
 ├── lib/
 │   ├── ai/                        # Multi-provider AI client + the localizer
 │   ├── api/                       # Response helpers, SSE helpers, in-process mutex + worker pool
-│   ├── appstore/                  # ASC API client (JWT, list/get/update endpoints) + env-based credentials
+│   ├── appstore/                  # ASC API client (JWT, list/get/update endpoints), iTunes lookup + app-icon refresh, env-based credentials
 │   ├── database/types.ts          # Shared Row / Insert / Update interfaces
 │   ├── db/                        # SQLite singleton (client.ts), schema.ts, typed queries.ts
 │   ├── env.ts                     # getNumberEnv() helper for env-var parsing
 │   ├── localization/              # Constants, JobConfig types, pure resume helpers, server-only stale cleanup
 │   └── strings/                   # .xcstrings parser, batcher, translator, merger
+├── instrumentation.ts             # Server-start hook — refreshes tracked apps' icons (fire-and-forget)
 ├── proxy.ts                       # Next 16 middleware-equivalent — sets security headers only
 └── middleware.ts                  # (not used — see proxy.ts)
 ```
@@ -81,6 +82,8 @@ Three tables, **no `user_id` columns** — this is a single-user app. JSON colum
 ```
 id (TEXT PK, UUID) | app_id (TEXT UNIQUE) | app_name | app_icon_url | created_at
 ```
+
+`app_id` is Apple's numeric track ID (not the bundle ID). `app_icon_url` is a cached Apple CDN URL — Apple rotates it when the icon changes, so the server-start hook rewrites it (see **Startup work** below). Job tables keep their own `app_icon_url` snapshot from when the job ran; those are history and are deliberately left alone.
 
 ### `localization_jobs`
 ```
@@ -235,6 +238,27 @@ import {
 
 Wrappers are in `src/lib/ai/providers/`. Don't import the SDKs directly from app code — go through `src/lib/ai/`.
 
+### Startup work — `src/instrumentation.ts`
+
+Next's `register()` runs once per server start (dev and prod). Today it kicks off `refreshSelectedAppIcons()` (`src/lib/appstore/app-icons.ts`), which re-reads each tracked app's artwork URL from the iTunes Lookup API and updates `selected_apps.app_icon_url`.
+
+Rules for anything added here:
+
+```ts
+export async function register(): Promise<void> {
+  if (process.env.NEXT_RUNTIME !== 'nodejs') return          // no SQLite on edge
+  if (process.env.NEXT_PHASE === 'phase-production-build') return
+
+  const { doThing } = await import('@/lib/...')              // keep server-only deps out of the edge bundle
+  void doThing().catch((error) => console.error(error))      // never block startup, never throw
+}
+```
+
+- Guard on the runtime and build phase, and `await import()` anything that touches the DB or the network.
+- Fire-and-forget. A slow or failing startup task must not delay the server or crash it.
+- Degrade quietly: `refreshSelectedAppIcons()` keeps the existing icon when a lookup fails rather than blanking it.
+- This is **not** a background worker or a cron — it's one pass at boot. Don't grow it into a scheduler.
+
 ### ASC credentials
 
 ```ts
@@ -254,7 +278,7 @@ Credentials live in `.env.local` only; no DB encryption layer.
 
 1. Use `getNumberEnv('NAME', default)` for numeric, or `process.env.NAME ?? default` for string.
 2. Document in `.env.example` with a brief comment.
-3. Mention in `SETUP.md` if it's user-facing.
+3. Mention in `SETUP.md` and the README config table if it's user-facing.
 
 ### A new DB column
 
