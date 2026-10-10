@@ -12,6 +12,9 @@ A **single-user, self-hosted** Next.js app that:
 2. Asks Claude or OpenAI to translate it into all 39 App Store locales.
 3. Pushes the translated metadata back to App Store Connect.
 4. Optionally translates `Localizable.xcstrings` files.
+5. Scales subscription / in-app-purchase prices to each country's purchasing power and pushes them back (no AI involved).
+6. Copies metadata from a previous version into the version being prepared.
+7. Audits, strictly read-only, how many screenshots App Store Connect actually holds per locale and display size.
 
 Everything runs locally against a SQLite file at `./data/shiplocal.db`. There is **no auth, no multi-tenant data model, no payment system, no telemetry, no external CDN**. The only network calls at runtime are to the user's chosen AI provider and Apple's APIs.
 
@@ -39,9 +42,12 @@ src/
 │   │   ├── dashboard/             # Home / overview
 │   │   ├── history/               # Job history
 │   │   ├── localization/[appId]/  # Localization flow (config, generating, preview, pushing, success)
+│   │   ├── pricing/               # Affordability-pricing flow (config, generating, preview, pushing, success)
+│   │   ├── copy/                  # Copy-metadata flow (config, preview, pushing, success)
+│   │   ├── screenshots/           # Screenshot Audit — read-only live view, no job row
 │   │   ├── settings/              # Connections tab (env state)
 │   │   └── strings/               # .xcstrings flow
-│   ├── api/                       # 16 API routes (see table below)
+│   ├── api/                       # ~30 API routes (see table below)
 │   ├── error.tsx                  # Root error boundary
 │   ├── globals.css                # Tailwind + theme variables
 │   ├── layout.tsx                 # Root layout (theme provider, Toaster)
@@ -61,11 +67,15 @@ src/
 ├── lib/
 │   ├── ai/                        # Multi-provider AI client + the localizer
 │   ├── api/                       # Response helpers, SSE helpers, in-process mutex + worker pool
-│   ├── appstore/                  # ASC API client (JWT, list/get/update endpoints), iTunes lookup + app-icon refresh, env-based credentials
+│   ├── appstore/                  # ASC API clients: api.ts (JWT, list/get/update endpoints),
+│   │                              #   pricing.ts, screenshots.ts (read-only audit) +
+│   │                              #   screenshot-display-types.ts, iTunes lookup +
+│   │                              #   app-icon refresh, env-based credentials
 │   ├── database/types.ts          # Shared Row / Insert / Update interfaces
 │   ├── db/                        # SQLite singleton (client.ts), schema.ts, typed queries.ts
 │   ├── env.ts                     # getNumberEnv() helper for env-var parsing
 │   ├── localization/              # Constants, JobConfig types, pure resume helpers, server-only stale cleanup
+│   ├── pricing/                   # PPP dataset, price-point calculator, compute pipeline, stale cleanup
 │   └── strings/                   # .xcstrings parser, batcher, translator, merger
 ├── instrumentation.ts             # Server-start hook — refreshes tracked apps' icons (fire-and-forget)
 ├── proxy.ts                       # Next 16 middleware-equivalent — sets security headers only
@@ -76,7 +86,7 @@ src/
 
 ## Database schema (SQLite)
 
-Three tables, **no `user_id` columns** — this is a single-user app. JSON columns are stored as TEXT and parsed/serialized by the helpers in `src/lib/db/queries.ts`.
+Five tables, **no `user_id` columns** — this is a single-user app. (The Screenshot Audit adds none: it is a live read-only view and persists nothing.) JSON columns are stored as TEXT and parsed/serialized by the helpers in `src/lib/db/queries.ts`.
 
 ### `selected_apps`
 ```
@@ -112,6 +122,31 @@ total_input_tokens, total_output_tokens, total_cost_cents,
 ai_model, created_at, updated_at, completed_at
 ```
 
+### `pricing_jobs`
+```
+id, app_id, app_name, app_icon_url,
+base_territory (TEXT, default 'USA'),
+product_ids (JSON: string[]),
+strategy (JSON: the run config — products, discount, base price points),
+status, results (JSON: { _config?, products[] }),
+product_results (JSON: Record<productId, { status, error? }>),
+error_message, pushed_to_asc (INTEGER 0/1), pushed_at,
+created_at, updated_at, completed_at
+```
+
+No token/cost columns — pricing proposals come from the bundled PPP dataset, not from an AI call.
+
+### `copy_jobs`
+```
+id, app_id, app_name, app_icon_url,
+source_version_id, source_version_string,
+target_version_id, target_version_string,
+fields_to_copy (JSON: string[]),
+status, results (JSON: { locales[] }),
+error_message, pushed_to_asc (INTEGER 0/1), pushed_at,
+created_at, updated_at, completed_at
+```
+
 Schema lives in `src/lib/db/schema.ts` and is applied on first `getDb()` call. No migration tool — see "Adding a DB column" below.
 
 ---
@@ -138,6 +173,19 @@ Schema lives in `src/lib/db/schema.ts` and is applied on first `getDb()` call. N
 | `/api/strings-jobs/[jobId]/stream` | GET | SSE generation |
 | `/api/strings-jobs/[jobId]/resume` | GET | SSE resume |
 | `/api/strings-jobs/[jobId]/download` | GET | Download translated `.xcstrings` |
+| `/api/pricing-jobs` | GET / POST | List / create |
+| `/api/pricing-jobs/[jobId]` | GET / PATCH / DELETE | Read / save price overrides / delete |
+| `/api/pricing-jobs/[jobId]/stream` | GET | SSE compute proposals |
+| `/api/pricing-jobs/[jobId]/resume` | GET | SSE resume failed/interrupted |
+| `/api/pricing-jobs/[jobId]/push` | GET | SSE push prices to ASC |
+| `/api/pricing-jobs/products` | GET | List an app's subscriptions / IAPs |
+| `/api/pricing-jobs/price-points` | GET | Apple's fixed price points for a product |
+| `/api/copy-jobs` | POST | Create a copy job (resolves source/target versions) |
+| `/api/copy-jobs/[jobId]` | GET | Read |
+| `/api/copy-jobs/[jobId]/push` | GET | SSE push copied metadata to ASC |
+| `/api/copy-jobs/config` | GET | Previous (source) + editable (target) version for an app |
+| `/api/screenshot-audit/versions` | GET | All App Store versions for an app (version dropdown) |
+| `/api/screenshot-audit/stream` | GET | SSE screenshot audit — **read-only**, streams one event per locale |
 
 ---
 
@@ -336,6 +384,7 @@ This app deliberately *isn't* a lot of things. Don't undo these choices:
 - **Don't add multi-tenant fields.** No `user_id`, no `tier`, no `subscription_status`. The schema is single-user.
 - **Don't add encryption-at-rest for credentials.** They live in `.env.local`; the env file is the trust boundary.
 - **Don't add a distributed mutex / advisory locks.** It's one Node process; in-process `createMutex()` is enough.
+- **Don't add writes to the Screenshot Audit.** `/api/screenshot-audit/*` and `src/lib/appstore/screenshots.ts` are deliberately GET-only. Deleting a ghost screenshot is left to App Store Connect, where the user can see what they're removing. Don't "helpfully" add a delete button, a bulk cleanup, or a reorder.
 
 If a user asks for any of the above, ask them to confirm — they may be misremembering an older SaaS version of this code.
 
@@ -366,4 +415,4 @@ No migrations command. SQLite schema applies automatically on first `getDb()` ca
 
 ## Tip
 
-When in doubt, **mimic an existing implementation**. The codebase has 16 API routes and ~30 feature components that already exercise every convention above. Grep for one that's near the shape of what you're adding, then follow its structure.
+When in doubt, **mimic an existing implementation**. The codebase has ~30 API routes and ~30 feature components that already exercise every convention above. Grep for one that's near the shape of what you're adding, then follow its structure.

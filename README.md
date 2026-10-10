@@ -15,6 +15,7 @@ ShipLocal pulls existing metadata from App Store Connect, asks Claude or OpenAI 
 - 🔁 **Resumable.** If a job fails mid-stream, hit **Resume** — it skips locales that already succeeded and re-runs only the failures.
 - 📄 **`.xcstrings` translation, too.** Upload a `Localizable.xcstrings`, get a translated one back, download.
 - 💰 **Affordability pricing.** Scale subscription and in-app-purchase prices to each country's purchasing power (a $19.99/yr sub shouldn't cost the same in the US as in India), then push them to App Store Connect. Uses a bundled purchasing-power dataset — no AI tokens spent.
+- 🖼️ **Screenshot audit.** See how many screenshots App Store Connect *really* holds for each locale and display size. Interrupted uploads leave reservations that still count toward Apple's limit of 10 but never show up in the web UI — which is why "Add for Review" sometimes fails with "You have uploaded too many screenshots" on a version that looks fine.
 - 🧠 **Multi-provider AI.** Switch between Claude and OpenAI by editing one env var.
 
 ---
@@ -94,6 +95,15 @@ Claude Haiku is in the same ballpark (slightly more, depending on length). Every
 - Mandatory review of current-vs-proposed prices before anything is pushed
 - Pushes via the ASC pricing APIs (subscription prices + IAP price schedules). **Requires an API key with Admin or App Manager access.** No AI tokens are spent.
 
+### Screenshot audit
+- Read-only: it never deletes, changes, uploads, or reorders anything
+- Every locale of the selected version, and under each locale every display size with the count App Store Connect actually holds
+- Flags any set over Apple's limit of 10, and any entry stuck in `AWAITING_UPLOAD` or `FAILED` — the invisible leftovers of an interrupted upload — with file names, states, and Apple's own error text
+- `UPLOAD_COMPLETE` is shown as *processing*, not as a problem
+- Display sizes are labelled readably (`iPhone 6.7"`) with the raw `screenshotDisplayType` kept alongside
+- Live view only — results stream in as each locale is read and nothing is saved; **Rescan** re-reads from Apple
+- Note: screenshot sets attached to custom product pages or A/B test treatments are separate resources and aren't counted
+
 ### Workflow
 - Server-Sent Events stream locale-by-locale progress live to the UI (no polling)
 - Atomic SQLite job-claim prevents duplicate processing if you double-click
@@ -133,6 +143,7 @@ Optional performance knobs (defaults shown):
 | `CONCURRENT_PRICING_PRODUCTS` | `2` | Products priced/pushed in parallel per affordability-pricing job. Each fans out across ~175 territories, so keep it modest. |
 | `REFRESH_APP_ICONS_ON_START` | enabled | Set to `false` to skip the app-icon refresh that runs when the server boots (e.g. when working offline). |
 | `APP_ICON_REFRESH_CONCURRENCY` | `4` | Apps whose icons are looked up in parallel during that refresh. |
+| `SCREENSHOT_AUDIT_CONCURRENCY` | `5` | Locales read in parallel during a screenshot audit. Each locale is one ASC request (plus a re-read for any set that can't be trusted from the batched response). |
 | `DATA_DIR` | `./data` | Where the SQLite file lives. |
 
 See **[`.env.example`](.env.example)** for the annotated template.
@@ -150,14 +161,16 @@ Next.js 16 (App Router, Turbopack) · React 19 · TypeScript · SQLite via `bett
 ```
 src/
 ├── app/
-│   ├── (app)/             # Dashboard pages (apps, history, localization, strings, settings)
-│   └── api/               # 16 API routes incl. SSE streams for live progress
+│   ├── (app)/             # Dashboard pages (apps, history, localization, strings,
+│   │                      #   pricing, copy, screenshots, settings)
+│   └── api/               # ~30 API routes incl. SSE streams for live progress
 ├── components/            # UI primitives (shadcn) + feature components
 ├── hooks/                 # SSE stream hooks, dashboard data hook
 ├── instrumentation.ts     # Startup hook — refreshes app icons on every server start
 └── lib/
     ├── ai/                # Multi-provider AI client + localizer
-    ├── appstore/          # ASC API client (JWT, versions, localizations)
+    ├── appstore/          # ASC API clients (JWT, versions, localizations, pricing,
+    │                      #   read-only screenshot audit)
     ├── db/                # SQLite singleton, schema, typed queries
     ├── localization/      # Constants, job utilities, stale cleanup
     ├── strings/           # .xcstrings parser, batcher, translator, merger
